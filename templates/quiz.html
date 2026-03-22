@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block nav_title %}Quiz{% endblock %}
+
+{% block content %}
+
+<h3 class="mb-4">Answer the Questions</h3>
+
+<!-- TIMER DISPLAY -->
+<h4 class="text-danger">⏳ Time Left: <span id="timer">1:00</span></h4>
+
+<form method="POST" action="/submit" id="quizForm">
+
+{% for q in questions %}
+
+<div class="card p-3 mb-3 text-dark">
+
+<p><b>{{q[1]}}</b></p>
+
+<label><input type="radio" name="{{q[0]}}" value="{{q[2]}}"> {{q[2]}}</label><br>
+<label><input type="radio" name="{{q[0]}}" value="{{q[3]}}"> {{q[3]}}</label><br>
+<label><input type="radio" name="{{q[0]}}" value="{{q[4]}}"> {{q[4]}}</label><br>
+<label><input type="radio" name="{{q[0]}}" value="{{q[5]}}"> {{q[5]}}</label>
+
+</div>
+
+{% endfor %}
+
+<button class="btn btn-success px-5">Submit</button>
+
+</form>
+
+<!-- TIMER SCRIPT -->
+<script>
+let timeLeft = 60; // change time here (in seconds)
+
+const timerDisplay = document.getElementById("timer");
+
+const interval = setInterval(() => {
+
+    let minutes = Math.floor(timeLeft / 60);
+    let seconds = timeLeft % 60;
+
+    timerDisplay.innerHTML = 
+        minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+
+    timeLeft--;
+
+    if (timeLeft < 0) {
+        clearInterval(interval);
+        alert("Time's up! Submitting quiz...");
+        document.getElementById("quizForm").submit();
+    }
+
+}, 1000);
+</script>
+
+{% endblock %}

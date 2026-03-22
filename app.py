@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, session
-import sqlite3, random
+import sqlite3, random, time
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
+# DB CONNECTION
 def db_conn():
     return sqlite3.connect("database.db")
 
@@ -13,30 +15,34 @@ def init_db():
 
     db.execute("""
     CREATE TABLE IF NOT EXISTS users(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    email TEXT,
-    password TEXT,
-    role TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT
     )""")
 
     db.execute("""
     CREATE TABLE IF NOT EXISTS questions(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    question TEXT,
-    option1 TEXT,
-    option2 TEXT,
-    option3 TEXT,
-    option4 TEXT,
-    answer TEXT
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT,
+        option1 TEXT,
+        option2 TEXT,
+        option3 TEXT,
+        option4 TEXT,
+        answer TEXT
     )""")
 
     db.execute("""
     CREATE TABLE IF NOT EXISTS results(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    score INTEGER
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        score INTEGER
     )""")
+
+    # INDEXES (optimization)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_email ON users(email)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_user_result ON results(user_id)")
 
     db.commit()
     db.close()
@@ -49,17 +55,22 @@ def home():
 # REGISTER
 @app.route("/register", methods=["GET","POST"])
 def register():
-    if request.method=="POST":
-        name=request.form["name"]
-        email=request.form["email"]
-        password=request.form["password"]
+    if request.method == "POST":
+        name = request.form["name"]
+        email = request.form["email"]
 
-        role = "student"   # default role
+        # 🔐 HASH PASSWORD
+        password = generate_password_hash(request.form["password"])
 
-        db=db_conn()
-        db.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
-                   (name,email,password,role))
-        db.commit()
+        role = "student"
+
+        db = db_conn()
+        try:
+            db.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
+                       (name, email, password, role))
+            db.commit()
+        except:
+            return "User already exists!"
 
         return redirect("/")
 
@@ -68,97 +79,130 @@ def register():
 # LOGIN
 @app.route("/login", methods=["POST"])
 def login():
-    email=request.form["email"]
-    password=request.form["password"]
+    email = request.form["email"]
+    password = request.form["password"]
 
-    db=db_conn()
-    cur=db.cursor()
-    cur.execute("SELECT * FROM users WHERE email=? AND password=?",(email,password))
-    user=cur.fetchone()
+    db = db_conn()
+    cur = db.cursor()
 
-    if user:
-        session["user"]=user[0]
-        session["role"]=user[4]   # store role
+    # fetch by email only
+    cur.execute("SELECT * FROM users WHERE email=?", (email,))
+    user = cur.fetchone()
+
+    # 🔐 CHECK HASH
+    if user and check_password_hash(user[3], password):
+        session["user"] = user[0]
+        session["role"] = user[4]
         return redirect("/dashboard")
 
-    return "Invalid Login"
+    return "Invalid Login ❌"
 
 # DASHBOARD
 @app.route("/dashboard")
 def dashboard():
+    if "user" not in session:
+        return redirect("/")
     return render_template("dashboard.html")
 
 # QUIZ
 @app.route("/quiz")
 def quiz():
-    db=db_conn()
-    questions=db.execute("SELECT * FROM questions").fetchall()
+    if "user" not in session:
+        return redirect("/")
 
-    questions=random.sample(questions, min(5,len(questions)))
+    db = db_conn()
+    questions = db.execute("SELECT * FROM questions").fetchall()
 
-    return render_template("quiz.html",questions=questions)
+    # 🎲 RANDOM SAMPLING
+    questions = random.sample(questions, min(5, len(questions)))
+
+    # 🧠 STORE QUESTION IDS (ANTI-CHEATING)
+    session["q_ids"] = [q[0] for q in questions]
+
+    # ⏱️ START TIMER
+    session["start_time"] = time.time()
+
+    return render_template("quiz.html", questions=questions)
 
 # SUBMIT
 @app.route("/submit", methods=["POST"])
 def submit():
-    db=db_conn()
-    questions=db.execute("SELECT * FROM questions").fetchall()
+    if "user" not in session:
+        return redirect("/")
 
-    score=0
-    for q in questions:
-        if request.form.get(str(q[0]))==q[6]:
-            score+=1
+    # ⏱️ TIMER CHECK (60 seconds)
+    if time.time() - session.get("start_time", 0) > 60:
+        return "Time Up ⏰"
 
-    db.execute("INSERT INTO results(user_id,score) VALUES(?,?)",(session["user"],score))
+    db = db_conn()
+
+    # 🧠 GET SAME QUESTIONS (ANTI-CHEATING)
+    q_ids = session.get("q_ids", [])
+    if not q_ids:
+        return redirect("/quiz")
+
+    query = f"SELECT * FROM questions WHERE id IN ({','.join(['?']*len(q_ids))})"
+    questions = db.execute(query, q_ids).fetchall()
+
+    # ⚡ HASH MAP FOR FAST LOOKUP
+    answers_map = {str(q[0]): q[6] for q in questions}
+
+    score = 0
+    for qid, correct_ans in answers_map.items():
+        if request.form.get(qid) == correct_ans:
+            score += 1
+
+    db.execute("INSERT INTO results(user_id,score) VALUES(?,?)",
+               (session["user"], score))
     db.commit()
 
-    return render_template("result.html",score=score)
+    return render_template("result.html", score=score)
 
 # LEADERBOARD
 @app.route("/leaderboard")
 def leaderboard():
-    db=db_conn()
-    data=db.execute("""
-    SELECT users.name, MAX(results.score)
+    db = db_conn()
+
+    # 🏆 TOP-K OPTIMIZED QUERY
+    data = db.execute("""
+    SELECT users.name, MAX(results.score) as best_score
     FROM results JOIN users
     ON users.id=results.user_id
-    GROUP BY users.name
-    ORDER BY MAX(results.score) DESC
+    GROUP BY users.id
+    ORDER BY best_score DESC
+    LIMIT 10
     """).fetchall()
 
-    return render_template("leaderboard.html",data=data)
+    return render_template("leaderboard.html", data=data)
 
-# ADMIN PANEL (PROTECTED)
+# ADMIN PANEL
 @app.route("/admin", methods=["GET","POST"])
 def admin():
-
     if session.get("role") != "admin":
         return "Access Denied ❌"
 
     db = db_conn()
 
-    if request.method=="POST":
-        q=request.form["q"]
-        o1=request.form["o1"]
-        o2=request.form["o2"]
-        o3=request.form["o3"]
-        o4=request.form["o4"]
-        ans=request.form["ans"]
-
+    if request.method == "POST":
         db.execute("""
         INSERT INTO questions(question,option1,option2,option3,option4,answer)
         VALUES(?,?,?,?,?,?)
-        """,(q,o1,o2,o3,o4,ans))
+        """, (
+            request.form["q"],
+            request.form["o1"],
+            request.form["o2"],
+            request.form["o3"],
+            request.form["o4"],
+            request.form["ans"]
+        ))
         db.commit()
 
     questions = db.execute("SELECT * FROM questions").fetchall()
+    return render_template("admin.html", questions=questions)
 
-    return render_template("admin.html",questions=questions)
-
-# DELETE SINGLE QUESTION
+# DELETE QUESTION
 @app.route("/delete_question/<int:id>")
 def delete_question(id):
-
     if session.get("role") != "admin":
         return "Access Denied ❌"
 
@@ -170,7 +214,6 @@ def delete_question(id):
 # DELETE ALL QUESTIONS
 @app.route("/delete_quiz")
 def delete_quiz():
-
     if session.get("role") != "admin":
         return "Access Denied ❌"
 
@@ -179,10 +222,9 @@ def delete_quiz():
     db.commit()
     return redirect("/admin")
 
-# RESET LEADERBOARD
+# RESET RESULTS
 @app.route("/reset_results")
 def reset_results():
-
     if session.get("role") != "admin":
         return "Access Denied ❌"
 
@@ -191,6 +233,12 @@ def reset_results():
     db.commit()
     return redirect("/admin")
 
-if __name__=="__main__":
+# LOGOUT
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+if __name__ == "__main__":
     init_db()
     app.run(debug=True)

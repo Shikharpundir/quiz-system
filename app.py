@@ -1,15 +1,14 @@
-from flask import Flask, render_template, request, redirect, session
-import sqlite3, random, time
+from flask import Flask, render_template, request, redirect, session, make_response
+import sqlite3, random
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "secret123"
 
-# DB CONNECTION
+# ---------------- DB ----------------
 def db_conn():
     return sqlite3.connect("database.db")
 
-# INIT DB
 def init_db():
     db = db_conn()
 
@@ -40,14 +39,51 @@ def init_db():
         score INTEGER
     )""")
 
-    # INDEXES (optimization)
     db.execute("CREATE INDEX IF NOT EXISTS idx_email ON users(email)")
     db.execute("CREATE INDEX IF NOT EXISTS idx_user_result ON results(user_id)")
 
     db.commit()
     db.close()
 
-# HOME
+# ---------------- CACHE CONTROL ----------------
+@app.after_request
+def add_header(response):
+    response.cache_control.no_store = True
+    response.cache_control.no_cache = True
+    response.cache_control.must_revalidate = True
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+# ---------------- MERGE SORT ----------------
+def merge_sort(arr):
+    if len(arr) <= 1:
+        return arr
+
+    mid = len(arr) // 2
+    left = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+
+    return merge(left, right)
+
+def merge(left, right):
+    result = []
+    i = j = 0
+
+    while i < len(left) and j < len(right):
+        if left[i][1] > right[j][1]:
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+
+    result.extend(left[i:])
+    result.extend(right[j:])
+    return result
+
+# ---------------- ROUTES ----------------
+
 @app.route("/")
 def home():
     return render_template("login.html")
@@ -58,16 +94,15 @@ def register():
     if request.method == "POST":
         name = request.form["name"]
         email = request.form["email"]
-
-        # 🔐 HASH PASSWORD
         password = generate_password_hash(request.form["password"])
-
         role = "student"
 
         db = db_conn()
         try:
-            db.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
-                       (name, email, password, role))
+            db.execute(
+                "INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",
+                (name, email, password, role)
+            )
             db.commit()
         except:
             return "User already exists!"
@@ -84,12 +119,9 @@ def login():
 
     db = db_conn()
     cur = db.cursor()
-
-    # fetch by email only
     cur.execute("SELECT * FROM users WHERE email=?", (email,))
     user = cur.fetchone()
 
-    # 🔐 CHECK HASH
     if user and check_password_hash(user[3], password):
         session["user"] = user[0]
         session["role"] = user[4]
@@ -105,22 +137,23 @@ def dashboard():
     return render_template("dashboard.html")
 
 # QUIZ
+
 @app.route("/quiz")
 def quiz():
     if "user" not in session:
         return redirect("/")
 
+    # 🔥 ALWAYS RESET OLD QUIZ SESSION
+    session.pop("q_ids", None)
+
     db = db_conn()
     questions = db.execute("SELECT * FROM questions").fetchall()
 
-    # 🎲 RANDOM SAMPLING
+    if not questions:
+        return "No questions available!"
+
     questions = random.sample(questions, min(5, len(questions)))
-
-    # 🧠 STORE QUESTION IDS (ANTI-CHEATING)
     session["q_ids"] = [q[0] for q in questions]
-
-    # ⏱️ START TIMER
-    session["start_time"] = time.time()
 
     return render_template("quiz.html", questions=questions)
 
@@ -130,13 +163,8 @@ def submit():
     if "user" not in session:
         return redirect("/")
 
-    # ⏱️ TIMER CHECK (60 seconds)
-    if time.time() - session.get("start_time", 0) > 60:
-        return "Time Up ⏰"
-
     db = db_conn()
 
-    # 🧠 GET SAME QUESTIONS (ANTI-CHEATING)
     q_ids = session.get("q_ids", [])
     if not q_ids:
         return redirect("/quiz")
@@ -144,7 +172,6 @@ def submit():
     query = f"SELECT * FROM questions WHERE id IN ({','.join(['?']*len(q_ids))})"
     questions = db.execute(query, q_ids).fetchall()
 
-    # ⚡ HASH MAP FOR FAST LOOKUP
     answers_map = {str(q[0]): q[6] for q in questions}
 
     score = 0
@@ -152,9 +179,14 @@ def submit():
         if request.form.get(qid) == correct_ans:
             score += 1
 
-    db.execute("INSERT INTO results(user_id,score) VALUES(?,?)",
-               (session["user"], score))
+    db.execute(
+        "INSERT INTO results(user_id,score) VALUES(?,?)",
+        (session["user"], score)
+    )
     db.commit()
+
+    # 🔥 IMPORTANT FIX
+    session.pop("q_ids", None)
 
     return render_template("result.html", score=score)
 
@@ -163,19 +195,19 @@ def submit():
 def leaderboard():
     db = db_conn()
 
-    # 🏆 TOP-K OPTIMIZED QUERY
     data = db.execute("""
-    SELECT users.name, MAX(results.score) as best_score
+    SELECT users.name, MAX(results.score)
     FROM results JOIN users
-    ON users.id=results.user_id
+    ON users.id = results.user_id
     GROUP BY users.id
-    ORDER BY best_score DESC
-    LIMIT 10
     """).fetchall()
 
-    return render_template("leaderboard.html", data=data)
+    sorted_data = merge_sort(data)
+    top_10 = sorted_data[:10]
 
-# ADMIN PANEL
+    return render_template("leaderboard.html", data=top_10)
+
+# ADMIN
 @app.route("/admin", methods=["GET","POST"])
 def admin():
     if session.get("role") != "admin":
@@ -239,6 +271,7 @@ def logout():
     session.clear()
     return redirect("/")
 
+# ---------------- RUN ----------------
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)

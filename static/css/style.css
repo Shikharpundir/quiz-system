@@ -1,41 +1,159 @@
+/* style.css */
+:root {
+    /* Advanced Color Palette */
+    --primary: #6c63ff;
+    --secondary: #ff007a; /* Neon Pink for accents */
+    --success: #00f2fe;   /* Cyber Blue for success */
+    --danger: #ff4d4d;
+    
+    /* Dark Theme Layers */
+    --bg-dark: #0f0c29;
+    --mesh-gradient: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                     radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                     radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    
+    /* Glass Effect Variables */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
 body {
-    /* Vibrant mesh gradient using your button color (#6c63ff) as the anchor */
-    background-color: #1e1e2f;
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(108, 99, 255, 0.3) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(58, 58, 95, 0.5) 0px, transparent 50%),
-        radial-gradient(at 50% 50%, rgba(108, 99, 255, 0.15) 0px, transparent 50%);
-    background-attachment: fixed;
-    font-family: 'Segoe UI', sans-serif;
-    color: white;
-    min-height: 100vh;
     margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-dark);
+    background-image: var(--mesh-gradient);
+    background-attachment: fixed;
+    color: #ffffff;
+    min-height: 100vh;
 }
 
-/* Glassmorphism Card - slightly more transparent to let the vibrant BG show through */
+/* --- The Glass Card --- */
 .card {
-    background: rgba(255, 255, 255, 0.07) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-    color: white !important;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: var(--glass-shadow);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    overflow: hidden;
 }
 
-/* Your Button - Glowing Effect */
-.btn-custom, .btn-primary, .btn-success {
-    background: #6c63ff !important;
-    border: none !important;
-    color: white !important;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    /* This adds a glow that matches the background */
+.card:hover {
+    transform: translateY(-10px);
+    border-color: var(--primary);
+    box-shadow: 0 10px 40px rgba(108, 99, 255, 0.2);
+}
+
+/* --- Animated Navbar --- */
+.navbar {
+    background: rgba(15, 12, 41, 0.7);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 1rem 2rem;
+}
+.navbar-brand {
+    font-size: 1.5rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    
+    /* 1. The Gradient */
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    
+    /* 2. The "Clip" - Webkit for Chrome/Safari, Standard for others */
+    -webkit-background-clip: text; 
+    background-clip: text; 
+    
+    /* 3. The "Transparency" */
+    -webkit-text-fill-color: transparent;
+    color: transparent; /* Fallback for transparency */
+}
+/* --- Advanced Buttons --- */
+.btn-custom {
+    background: linear-gradient(45deg, var(--primary), var(--secondary));
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 50px;
+    font-weight: 700;
+    text-transform: uppercase;
+    transition: 0.3s;
     box-shadow: 0 4px 15px rgba(108, 99, 255, 0.4);
 }
 
-.btn-custom:hover, .btn-primary:hover, .btn-success:hover {
-    background: #827aff !important; /* Slightly lighter on hover */
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(108, 99, 255, 0.6);
+.btn-custom:hover {
+    transform: scale(1.05) rotate(-1deg);
+    box-shadow: 0 6px 25px rgba(255, 0, 122, 0.5);
+    color: white;
+}
+
+/* --- Radio Button Styling (The Quiz part) --- */
+.quiz-option {
+    display: block;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.quiz-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+}
+
+input[type="radio"]:checked + .quiz-option {
+    background: rgba(108, 99, 255, 0.2);
+    border-color: var(--primary);
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.container {
+    animation: fadeIn 0.8s ease-out;
+}
+/* style.css */
+.navbar-text {
+    color: #ffffff !important; /* Forces the text to be pure white */
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.3); /* Adds a soft glow */
+    opacity: 1 !important; /* Ensures it's not semi-transparent */
+}
+
+/* Optional: Add a subtle 'Glass' capsule around the welcome message */
+.welcome-msg {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-right: 15px;
+}
+/* style.css */
+
+/* Force all text in quiz cards to be white */
+.card p, .card h5, .card label {
+    color: #ffffff !important; 
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Helps readability */
+}
+
+/* Ensure the question text is bold and bright */
+.question-text {
+    color: var(--primary) !important; /* Uses your vibrant purple/blue */
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: block;
+}
+
+/* Fix for the option text color */
+.option-tile {
+    color: rgba(255, 255, 255, 0.9) !important;
 }

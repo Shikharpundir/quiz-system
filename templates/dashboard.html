@@ -1,19 +1,53 @@
 {% extends "base.html" %}
+
 {% block content %}
+<div class="text-center mb-5">
+    <h1 class="display-4 fw-bold">Welcome, {{ session.name }}! 🚀</h1>
+    <p class="text-white-50">Choose a subject below to test your knowledge.</p>
+</div>
 
-<div class="text-center">
+<div class="d-flex justify-content-center gap-3 mb-5">
+    <a href="/leaderboard" class="btn btn-outline-light px-4">🏆 Leaderboard</a>
+    {% if session.role == "admin" %}
+    <a href="/admin" class="btn btn-outline-warning px-4">⚙️ Admin Panel</a>
+    {% endif %}
+</div>
 
-<h2>Welcome to Quiz System 🚀</h2>
+<hr class="border-secondary mb-5">
 
-<a href="/quiz" class="btn btn-primary mt-4 px-5">Start Quiz</a>
-<br>
-<a href="/leaderboard" class="btn btn-light mt-3 px-4">Leaderboard</a>
-
-{% if session.role == "admin" %}
-<br>
-<a href="/admin" class="btn btn-warning mt-3 px-4">Admin Panel</a>
-{% endif %}
-
+<div class="row g-4 justify-content-center">
+    {% if categories %}
+        {% for cat in categories %}
+        <div class="col-md-4">
+            <div class="card h-100 p-4 text-center shadow-lg">
+                <div class="mb-3" style="font-size: 3.5rem;">
+                    {# Smart Emoji Picker based on Subject Name #}
+                    {% if 'math' in cat|lower %}📐
+                    {% elif 'python' in cat|lower or 'c++' in cat|lower or 'code' in cat|lower %}💻
+                    {% elif 'science' in cat|lower %}🧪
+                    {% elif 'history' in cat|lower %}📜
+                    {% else %}📝{% endif %}
+                </div>
+                
+                <h3 class="text-white mb-2">{{ cat }}</h3>
+                <p class="text-white-50 small mb-4">Click below to start the {{ cat }} challenge.</p>
+                
+                <a href="{{ url_for('quiz', category=cat) }}" class="btn btn-custom w-100">
+                    Start {{ cat }} Quiz
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12 text-center">
+            <div class="card p-5">
+                <p class="text-white-50">No quizzes have been created yet. Check back later!</p>
+                {% if session.role == "admin" %}
+                <a href="/admin" class="btn btn-warning mt-2">Add your first question</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 {% endblock %}

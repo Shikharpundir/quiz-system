@@ -1,58 +1,180 @@
 {% extends "base.html" %}
 
-{% block nav_title %}Quiz{% endblock %}
+{% block nav_title %}Quiz Master{% endblock %}
+
+{% block extra_styles %}
+<style>
+    /* 1. Timer Styling - Floating Glass Capsule */
+    .timer-wrapper {
+        position: sticky;
+        top: 90px;
+        z-index: 1000;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .timer-card {
+        display: inline-block;
+        background: rgba(255, 77, 77, 0.15);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 77, 77, 0.4);
+        padding: 12px 25px;
+        border-radius: 50px;
+        box-shadow: 0 0 20px rgba(255, 77, 77, 0.2);
+    }
+
+    /* 2. Question Visibility Fixes */
+    .question-card {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 20px;
+        transition: transform 0.3s ease;
+    }
+
+    .question-card:hover {
+        border-color: var(--primary);
+        transform: scale(1.01);
+    }
+
+    /* Force all text inside the quiz to be Bright White */
+    .quiz-text, .option-text {
+        color: #ffffff !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .question-header {
+        color: var(--primary) !important;
+        font-weight: 700;
+        font-size: 1.3rem;
+        margin-bottom: 20px;
+    }
+
+    /* 3. Advanced Option Tiles (Radio Buttons) */
+    .option-container {
+        display: block;
+        cursor: pointer;
+        margin-bottom: 12px;
+    }
+
+    .option-tile {
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 18px;
+        border-radius: 15px;
+        display: block;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Hide the actual browser radio circle */
+    input[type="radio"] {
+        display: none;
+    }
+
+    /* When selected: Glow Purple and Slide Right */
+    input[type="radio"]:checked + .option-tile {
+        background: rgba(108, 99, 255, 0.25);
+        border-color: var(--primary);
+        box-shadow: 0 0 15px rgba(108, 99, 255, 0.4);
+        transform: translateX(12px);
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(255, 77, 77, 0.5); }
+        100% { transform: scale(1); }
+    }
+
+    .time-critical {
+        animation: pulse 1s infinite;
+        background: rgba(255, 77, 77, 0.4) !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 
-<h3 class="mb-4">Answer the Questions</h3>
-
-<!-- TIMER DISPLAY -->
-<h4 class="text-danger">⏳ Time Left: <span id="timer">1:00</span></h4>
-
-<form method="POST" action="/submit" id="quizForm">
-
-{% for q in questions %}
-
-<div class="card p-3 mb-3 text-dark">
-
-<p><b>{{q[1]}}</b></p>
-
-<label><input type="radio" name="{{q[0]}}" value="{{q[2]}}"> {{q[2]}}</label><br>
-<label><input type="radio" name="{{q[0]}}" value="{{q[3]}}"> {{q[3]}}</label><br>
-<label><input type="radio" name="{{q[0]}}" value="{{q[4]}}"> {{q[4]}}</label><br>
-<label><input type="radio" name="{{q[0]}}" value="{{q[5]}}"> {{q[5]}}</label>
-
+<div class="timer-wrapper">
+    <div class="timer-card" id="timerContainer">
+        <h4 class="m-0 text-white">⏳ Time Left: <span id="timer">01:00</span></h4>
+    </div>
 </div>
 
-{% endfor %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="text-center mb-5 quiz-text" style="letter-spacing: 2px;">CHALLENGE MODE</h2>
 
-<button class="btn btn-success px-5">Submit</button>
+        <form method="POST" action="/submit" id="quizForm">
+            {% for q in questions %}
+            <div class="card question-card p-4 mb-4 shadow-lg">
+                <div class="question-header">
+                    Q{{ loop.index }}. {{ q[1] }}
+                </div>
 
-</form>
+                <div class="options-list">
+                    <label class="option-container">
+                        <input type="radio" name="{{ q[0] }}" value="{{ q[2] }}" required>
+                        <span class="option-tile option-text">{{ q[2] }}</span>
+                    </label>
 
-<!-- TIMER SCRIPT -->
+                    <label class="option-container">
+                        <input type="radio" name="{{ q[0] }}" value="{{ q[3] }}">
+                        <span class="option-tile option-text">{{ q[3] }}</span>
+                    </label>
+
+                    <label class="option-container">
+                        <input type="radio" name="{{ q[0] }}" value="{{ q[4] }}">
+                        <span class="option-tile option-text">{{ q[4] }}</span>
+                    </label>
+
+                    <label class="option-container">
+                        <input type="radio" name="{{ q[0] }}" value="{{ q[5] }}">
+                        <span class="option-tile option-text">{{ q[5] }}</span>
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="text-center mt-5">
+                <button type="submit" class="btn btn-custom px-5 py-3 shadow-lg">
+                    Finalize Submission 🚀
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-let timeLeft = 60; // change time here (in seconds)
+    let timeLeft = 60; // 60 Seconds
+    const timerDisplay = document.getElementById("timer");
+    const timerContainer = document.getElementById("timerContainer");
 
-const timerDisplay = document.getElementById("timer");
+    const countdown = setInterval(() => {
+        let minutes = Math.floor(timeLeft / 60);
+        let seconds = timeLeft % 60;
 
-const interval = setInterval(() => {
+        // Formats as 00:00
+        timerDisplay.innerHTML = 
+            (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
 
-    let minutes = Math.floor(timeLeft / 60);
-    let seconds = timeLeft % 60;
+        // Pulse effect when under 10 seconds
+        if (timeLeft <= 10) {
+            timerContainer.classList.add("time-critical");
+        }
 
-    timerDisplay.innerHTML = 
-        minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+        if (timeLeft <= 0) {
+            clearInterval(countdown);
+            alert("Time is up! Submitting your answers automatically.");
+            document.getElementById("quizForm").submit();
+        }
+        
+        timeLeft--;
+    }, 1000);
 
-    timeLeft--;
-
-    if (timeLeft < 0) {
-        clearInterval(interval);
-        alert("Time's up! Submitting quiz...");
-        document.getElementById("quizForm").submit();
-    }
-
-}, 1000);
+    // Stop timer on manual submit
+    document.getElementById("quizForm").onsubmit = function() {
+        clearInterval(countdown);
+    };
 </script>
 
 {% endblock %}

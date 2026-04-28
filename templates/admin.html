@@ -3,48 +3,79 @@
 
 <div class="row">
     <div class="col-md-5">
-        <div class="card p-4 mb-4">
-            <h3 class="mb-4">Add Question ➕</h3>
+        <div class="card p-4 mb-4 shadow-lg">
+            <h3 class="mb-4 text-white">Add Question ➕</h3>
             <form method="POST">
-                <input name="q" class="form-control mb-3" placeholder="Question Text">
-                <div class="row g-2">
-                    <div class="col-6"><input name="o1" class="form-control mb-2" placeholder="Option 1"></div>
-                    <div class="col-6"><input name="o2" class="form-control mb-2" placeholder="Option 2"></div>
-                    <div class="col-6"><input name="o3" class="form-control mb-2" placeholder="Option 3"></div>
-                    <div class="col-6"><input name="o4" class="form-control mb-2" placeholder="Option 4"></div>
+                <div class="mb-3">
+                    <label class="form-label text-white-50 small">Subject Category (e.g. Maths, C++, Python)</label>
+                    <input name="category" class="form-control" placeholder="Enter Subject Name" required>
                 </div>
-                <input name="ans" class="form-control mt-2 mb-3" placeholder="Correct Answer">
-                <button class="btn btn-custom w-100">Add to Quiz</button>
+
+                <div class="mb-3">
+                    <label class="form-label text-white-50 small">Question Text</label>
+                    <textarea name="q" class="form-control" rows="2" placeholder="What is...?" required></textarea>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><input name="o1" class="form-control" placeholder="Option 1" required></div>
+                    <div class="col-6"><input name="o2" class="form-control" placeholder="Option 2" required></div>
+                    <div class="col-6"><input name="o3" class="form-control" placeholder="Option 3" required></div>
+                    <div class="col-6"><input name="o4" class="form-control" placeholder="Option 4" required></div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label text-white-50 small">Correct Answer (Must match an option exactly)</label>
+                    <input name="ans" class="form-control" placeholder="Correct Answer" required>
+                </div>
+
+                <button class="btn btn-custom w-100 py-2">Add to Quiz 🚀</button>
             </form>
         </div>
 
-        <div class="card p-4 border-danger">
+        <div class="card p-4 border-danger shadow-sm">
             <h4 class="text-danger">Danger Zone ⚠️</h4>
-            <p class="small text-white-50">Use these with caution. These actions cannot be undone.</p>
+            <p class="small text-white-50">Actions here are permanent. Proceed with caution.</p>
             <div class="d-grid gap-2">
-                <a href="/reset_results" class="btn btn-warning">Reset Leaderboard</a>
-                <a href="/delete_quiz" class="btn btn-danger">Delete Entire Quiz</a>
+                <a href="/reset_results" class="btn btn-outline-warning btn-sm" onclick="return confirm('Reset all scores?')">Reset Leaderboard</a>
+                <a href="/delete_quiz" class="btn btn-outline-danger btn-sm" onclick="return confirm('DELETE EVERYTHING?')">Delete Entire Quiz</a>
             </div>
         </div>
     </div>
 
     <div class="col-md-7">
-        <div class="card p-4">
-            <h4 class="mb-4">Manage Questions ({{ questions|length }})</h4>
-            <div class="question-list" style="max-height: 600px; overflow-y: auto;">
-                {% for q in questions %}
-                <div class="card p-3 mb-2 bg-dark-subtle border-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-truncate" style="max-width: 80%;">{{q[1]}}</span>
-                        <a href="/delete_question/{{q[0]}}" class="btn btn-outline-danger btn-sm">
-                            Delete
-                        </a>
+        <div class="card p-4 shadow-lg">
+            <h4 class="mb-4 text-white">Manage Questions ({{ questions|length }})</h4>
+            <div class="question-list" style="max-height: 700px; overflow-y: auto; padding-right: 10px;">
+                {% if questions %}
+                    {% for q in questions %}
+                    <div class="card p-3 mb-3 bg-white-5 border-0 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div style="max-width: 80%;">
+                                <span class="badge bg-primary mb-2">{{ q[7] }}</span>
+                                <p class="text-white mb-0">{{ q[1] }}</p>
+                                <small class="text-success">Ans: {{ q[6] }}</small>
+                            </div>
+                            <a href="/delete_question/{{ q[0] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Delete this question?')">
+                                🗑️
+                            </a>
+                        </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-center text-white-50 py-5">No questions found. Add one on the left!</p>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    /* Custom Scrollbar for the Question List */
+    .question-list::-webkit-scrollbar { width: 6px; }
+    .question-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+    .question-list::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+    
+    .bg-white-5 { background: rgba(255, 255, 255, 0.05); }
+</style>
 
 {% endblock %}
